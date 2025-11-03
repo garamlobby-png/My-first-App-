@@ -1,0 +1,159 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BigNumber Calculator — No API Key</title>
+  <style>
+    :root{font-family:system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial}
+    body{display:flex;align-items:center;justify-content:center;min-height:100vh;background:#0f172a;color:#e6eef8;margin:0}
+    .card{width:100%;max-width:820px;background:#091029;padding:22px;border-radius:12px;box-shadow:0 8px 30px rgba(2,6,23,.6)}
+    h1{margin:0 0 8px;font-size:20px}
+    .row{display:flex;gap:8px;margin-bottom:12px}
+    input[type=text]{flex:1;padding:12px;border-radius:8px;border:1px solid #1e293b;background:#031026;color:inherit;font-size:16px}
+    button{padding:10px 14px;border-radius:8px;border:0;background:#0ea5a4;color:#04121a;font-weight:600;cursor:pointer}
+    button.secondary{background:#1f2937;color:#e6eef8}
+    .out{background:#021022;padding:14px;border-radius:8px;border:1px solid #102433;min-height:64px}
+    .meta{font-size:13px;color:#9fb0c9}
+    .history{max-height:220px;overflow:auto;margin-top:10px}
+    code{background:rgba(255,255,255,0.03);padding:4px 6px;border-radius:6px}
+    label{font-size:13px;color:#9fb0c9}
+    .controls{display:flex;gap:8px;align-items:center}
+  </style>
+  <!-- math.js for BigNumber support (no API key) -->
+  <script src="https://cdn.jsdelivr.net/npm/mathjs@11.8.0/lib/browser/math.js"></script>
+</head>
+<body>
+  <div class="card">
+    <h1>BigNumber Calculator — Error‑resistant, offline (no API key)</h1>
+    <div class="meta">Type expressions using suffixes: <code>k</code>=1e3, <code>m</code>=1e6, <code>b</code>=1e9, <code>t</code>=1e12. Examples: <code>100k * 20000k</code>, <code>1.5m + 250k</code>, <code>(2t/5) - 3e6</code></div><div class="row" style="margin-top:12px">
+  <input id="expr" type="text" placeholder="Type expression, then Evaluate — e.g. 100k * 20000k" autofocus />
+  <button id="evalBtn">Evaluate</button>
+  <button id="clearBtn" class="secondary">Clear</button>
+</div>
+
+<div class="row controls">
+  <label>Precision:</label>
+  <select id="precision">
+    <option value="32">32 digits</option>
+    <option value="64" selected>64 digits</option>
+    <option value="128">128 digits</option>
+    <option value="256">256 digits</option>
+  </select>
+  <button id="copyBtn" class="secondary">Copy Result</button>
+</div>
+
+<div class="out" id="output">Result will appear here.</div>
+
+<div class="history" id="history"></div>
+
+<div style="margin-top:12px" class="meta">This is a single-file app — open locally (save as <code>calculator.html</code>) and run in your browser. No network needed after first load of math.js. Works with very large integers & decimals.</div>
+
+  </div><script>
+// Configure math.js to use BigNumber with adjustable precision
+function configureMath(prec){
+  math.config({number: 'BigNumber', precision: parseInt(prec,10), predictable: false});
+}
+configureMath(document.getElementById('precision').value);
+
+// parse suffixes like 1.2k, 100K, 3.5m, 2b, 4t
+function expandSuffixes(input){
+  // remove commas
+  let s = String(input).replace(/,/g, '');
+  // replace occurrences like 123.45k or 123k
+  s = s.replace(/(\d+(?:\.\d+)?)(?:\s*)([kKmMbBtT])\b/g, function(_, num, suf){
+    const mapping = {k:'e3', m:'e6', b:'e9', t:'e12'};
+    return num + mapping[suf.toLowerCase()];
+  });
+  return s;
+}
+
+function safeEvaluate(rawExpr){
+  const outEl = document.getElementById('output');
+  const historyEl = document.getElementById('history');
+  try{
+    const processed = expandSuffixes(rawExpr);
+    // Use math.evaluate which returns a BigNumber when configured
+    const res = math.evaluate(processed);
+    // Convert to string with full precision
+    const resStr = (res && res.toString) ? res.toString() : String(res);
+    const pretty = formatWithCommasBigNumber(resStr);
+    outEl.innerHTML = '<strong>' + pretty + '</strong>' + '<div class="meta">Raw: <code>' + resStr + '</code></div>';
+
+    const entry = document.createElement('div');
+    entry.innerHTML = '<div style="padding:8px;border-bottom:1px solid rgba(255,255,255,0.02)"><code>' + escapeHtml(rawExpr) + '</code> =&gt; <strong>' + pretty + '</strong></div>';
+    historyEl.prepend(entry);
+  }catch(err){
+    outEl.innerHTML = '<span style="color:#ffbcbc">Error:</span> ' + escapeHtml(err && err.toString ? err.toString() : String(err));
+  }
+}
+
+function formatWithCommasBigNumber(s){
+  // s is decimal representation, maybe with exponent like 2.345e+30
+  if(/e/i.test(s)){
+    // convert exponent to full string using math.format
+    try{
+      return math.format(math.bignumber(s), {notation: 'fixed'});
+    }catch(e){
+      return s; // fallback
+    }
+  }
+  // split integer and fractional
+  const parts = s.split('.');
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return parts.join('.');
+}
+
+function escapeHtml(text){
+  return String(text).replace(/[&<>"']/g, function(ch){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[ch];
+  });
+}
+
+// UI wiring
+document.getElementById('evalBtn').addEventListener('click', function(){
+  const expr = document.getElementById('expr').value.trim();
+  if(!expr) return;
+  safeEvaluate(expr);
+});
+
+document.getElementById('expr').addEventListener('keydown', function(e){
+  if(e.key === 'Enter'){
+    e.preventDefault();
+    document.getElementById('evalBtn').click();
+  }
+});
+
+document.getElementById('clearBtn').addEventListener('click', function(){
+  document.getElementById('expr').value = '';
+  document.getElementById('output').textContent = 'Result will appear here.';
+});
+
+document.getElementById('copyBtn').addEventListener('click', function(){
+  const out = document.getElementById('output').innerText;
+  navigator.clipboard && navigator.clipboard.writeText(out).then(function(){
+    alert('Result copied to clipboard');
+  }).catch(function(){
+    alert('Copy failed — select and copy manually');
+  });
+});
+
+document.getElementById('precision').addEventListener('change', function(){
+  configureMath(this.value);
+});
+
+// Helpful examples prefill on load
+const examples = [
+  '100k * 20000k',
+  '1.5m + 250k',
+  '(2t / 5) - 3e6',
+  '123456789123456789 * 987654321987654321'
+];
+const exprInput = document.getElementById('expr');
+exprInput.value = examples[0];
+
+// Run first example automatically
+safeEvaluate(exprInput.value);
+</script></body>
+</html>
