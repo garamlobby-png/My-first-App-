@@ -1,2 +1,1 @@
-# My-first-App-
-Calculator app 
+void main(){ 
