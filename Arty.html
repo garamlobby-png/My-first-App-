@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arty Dot</title>
+<style>
+  body {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background-color: #f5f5f5;
+    font-family: sans-serif;
+    padding: 10px;
+  }
+  canvas {
+    border: 2px solid #333;
+    background-color: #fff;
+    cursor: crosshair;
+    touch-action: none; /* Prevent default touch scrolling */
+  }
+  .controls {
+    margin-top: 10px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  button, input[type="color"], input[type="range"] {
+    padding: 8px 12px;
+    font-size: 16px;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="artCanvas" width="800" height="600"></canvas>
+
+<div class="controls">
+  <label>Choose Color: <input type="color" id="colorPicker" value="#ff0000"></label>
+  <label>Dot Size: <input type="range" id="sizePicker" min="5" max="50" value="10"></label>
+  <button id="saveBtn">Save as Image</button>
+  <button id="clearBtn">Clear Canvas</button>
+</div>
+
+<script>
+  const canvas = document.getElementById('artCanvas');
+  const ctx = canvas.getContext('2d');
+  const colorPicker = document.getElementById('colorPicker');
+  const sizePicker = document.getElementById('sizePicker');
+  const saveBtn = document.getElementById('saveBtn');
+  const clearBtn = document.getElementById('clearBtn');
+
+  let dotColor = colorPicker.value;
+  let dotSize = parseInt(sizePicker.value);
+
+  // Draw dot function
+  function drawDot(x, y) {
+    ctx.beginPath();
+    ctx.arc(x, y, dotSize, 0, Math.PI * 2);
+    ctx.fillStyle = dotColor;
+    ctx.fill();
+  }
+
+  // Mouse & Touch draw
+  function getPointerPos(e) {
+    const rect = canvas.getBoundingClientRect();
+    let x, y;
+    if(e.touches){
+      x = e.touches[0].clientX - rect.left;
+      y = e.touches[0].clientY - rect.top;
+    } else {
+      x = e.clientX - rect.left;
+      y = e.clientY - rect.top;
+    }
+    return {x, y};
+  }
+
+  canvas.addEventListener('click', (e) => {
+    const pos = getPointerPos(e);
+    drawDot(pos.x, pos.y);
+  });
+
+  canvas.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    const pos = getPointerPos(e);
+    drawDot(pos.x, pos.y);
+  });
+
+  canvas.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    const pos = getPointerPos(e);
+    drawDot(pos.x, pos.y);
+  });
+
+  // Update color & size
+  colorPicker.addEventListener('input', (e) => {
+    dotColor = e.target.value;
+  });
+  sizePicker.addEventListener('input', (e) => {
+    dotSize = parseInt(e.target.value);
+  });
+
+  // Save canvas as image
+  saveBtn.addEventListener('click', () => {
+    const image = canvas.toDataURL('image/png');
+    const link = document.createElement('a');
+    link.href = image;
+    link.download = 'arty-dot.png';
+    link.click();
+  });
+
+  // Clear canvas
+  clearBtn.addEventListener('click', () => {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  });
+</script>
+
+</body>
+</html>
